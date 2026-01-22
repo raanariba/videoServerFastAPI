@@ -1,0 +1,102 @@
+# ===============================
+# Python
+# ===============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+*.egg
+
+# ===============================
+# Virtual Environments
+# ===============================
+.venv/
+venv/
+env/
+ENV/
+environment/
+evspython/
+
+# ===============================
+# Python tools
+# ===============================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+coverage.xml
+htmlcov/
+.nox/
+
+# ===============================
+# Environment variables
+# ===============================
+.env
+.env.*
+!.env.example
+
+# ===============================
+# Logs
+# ===============================
+*.log
+logs/
+log/
+
+# ===============================
+# Video / Media files
+# ===============================
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.flv
+*.wmv
+
+# ===============================
+# HLS / Streaming output
+# ===============================
+*.ts
+*.m3u8
+
+# carpetas generadas por ffmpeg / hls
+upload/
+uploads/
+streams/
+videos/
+media/
+output/
+hls/
+
+# ===============================
+# Benchmark artifacts
+# ===============================
+results/
+benchmarks/
+metrics/
+*.csv
+*.json
+
+# ===============================
+# OS files
+# ===============================
+# Windows
+Thumbs.db
+desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# ===============================
+# Editors / IDEs
+# ===============================
+.vscode/
+.idea/
+*.swp
+*.swo
