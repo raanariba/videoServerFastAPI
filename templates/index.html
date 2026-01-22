@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Conversor HLS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #050816;
+        color: #e5e7eb;
+      }
+
+      .page {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 3rem;
+      }
+
+      h1 {
+        text-align: center;
+        font-size: 2rem;
+        margin-bottom: 2rem;
+        color: #f9fafb;
+      }
+
+      .card {
+        background: #020617;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.8),
+          0 10px 10px -5px rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        margin-bottom: 1.5rem;
+      }
+
+      .card h2 {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        color: #e5e7eb;
+      }
+
+      .upload-row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      input[type="file"] {
+        color: #e5e7eb;
+      }
+
+      button {
+        border: none;
+        border-radius: 9999px;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        background: #38bdf8;
+        color: #020617;
+        transition: background 0.15s ease, transform 0.1s ease,
+          box-shadow 0.1s ease;
+        box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.4);
+      }
+
+      button:hover {
+        background: #0ea5e9;
+        transform: translateY(-1px);
+        box-shadow: 0 15px 25px -5px rgba(56, 189, 248, 0.6);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+        box-shadow: none;
+        transform: none;
+      }
+
+      .status {
+        margin-top: 0.75rem;
+        font-size: 0.85rem;
+        color: #9ca3af;
+      }
+
+      .library-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+      }
+
+      .library-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 9999px;
+        padding: 0.4rem 0.75rem;
+        background: #020617;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        margin-bottom: 0.4rem;
+        font-size: 0.85rem;
+      }
+
+      .library-main {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .library-name {
+        font-weight: 500;
+        color: #e5e7eb;
+      }
+
+      .library-meta {
+        color: #9ca3af;
+        font-size: 0.78rem;
+      }
+
+      .player-card video {
+        width: 100%;
+        border-radius: 0.75rem;
+        background: black;
+        max-height: 360px;
+      }
+
+      @media (min-width: 768px) {
+        h1 {
+          font-size: 2.3rem;
+        }
+      }
+    </style>
+    <!-- hls.js desde CDN, igual que en NestJS -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Conversor HLS</h1>
+
+      <!-- Subir video -->
+      <section class="card">
+        <h2>Subir un nuevo video</h2>
+        <div class="upload-row">
+          <input type="file" id="fileInput" accept="video/*" />
+          <button id="uploadBtn">Subir</button>
+        </div>
+        <div class="status" id="uploadStatus"></div>
+      </section>
+
+      <!-- Biblioteca -->
+      <section class="card">
+        <h2>Biblioteca</h2>
+        <ul class="library-list" id="videoList"></ul>
+      </section>
+
+      <!-- Reproductor -->
+      <section class="card player-card">
+        <h2>Reproductor</h2>
+        <video id="videoPlayer" controls></video>
+      </section>
+    </div>
+
+    <script>
+      const uploadBtn = document.getElementById("uploadBtn");
+      const fileInput = document.getElementById("fileInput");
+      const uploadStatus = document.getElementById("uploadStatus");
+      const videoList = document.getElementById("videoList");
+      const videoPlayer = document.getElementById("videoPlayer");
+
+      // Base URL (mismo host/puerto donde corre FastAPI)
+      const API_BASE = "";
+
+      let hlsInstance = null;
+
+      function formatDate(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        return d.toLocaleString();
+      }
+
+      async function loadVideos() {
+        videoList.innerHTML = "";
+        try {
+          const res = await fetch(`${API_BASE}/videos`);
+          if (!res.ok) throw new Error("Error al cargar videos");
+          const videos = await res.json();
+
+          if (!videos.length) {
+            videoList.innerHTML =
+              '<li class="library-item"><span class="library-name">No hay videos todavía.</span></li>';
+            return;
+          }
+
+          for (const v of videos) {
+            const li = document.createElement("li");
+            li.className = "library-item";
+
+            const main = document.createElement("div");
+            main.className = "library-main";
+
+            const name = document.createElement("span");
+            name.className = "library-name";
+            name.textContent = v.originalName || v.id;
+
+            const meta = document.createElement("span");
+            meta.className = "library-meta";
+            meta.textContent = v.uploadedAt ? formatDate(v.uploadedAt) : "";
+
+            main.appendChild(name);
+            main.appendChild(meta);
+
+            const btn = document.createElement("button");
+            btn.textContent = "Reproducir";
+            btn.onclick = () => playVideo(v);
+
+            li.appendChild(main);
+            li.appendChild(btn);
+
+            videoList.appendChild(li);
+          }
+        } catch (err) {
+          console.error(err);
+          videoList.innerHTML =
+            '<li class="library-item"><span class="library-name">Error al cargar la biblioteca.</span></li>';
+        }
+      }
+
+      function playVideo(video) {
+        const url = `${API_BASE}${video.playlistUrl}`;
+
+        if (hlsInstance) {
+          hlsInstance.destroy();
+          hlsInstance = null;
+        }
+
+        if (videoPlayer.canPlayType("application/vnd.apple.mpegurl")) {
+          videoPlayer.src = url;
+        } else if (Hls.isSupported()) {
+          hlsInstance = new Hls();
+          hlsInstance.loadSource(url);
+          hlsInstance.attachMedia(videoPlayer);
+        } else {
+          alert("Tu navegador no soporta HLS");
+        }
+      }
+
+      uploadBtn.addEventListener("click", async () => {
+        const file = fileInput.files[0];
+        if (!file) {
+          alert("Selecciona un archivo de video");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        uploadBtn.disabled = true;
+        uploadStatus.textContent = "Subiendo y convirtiendo video...";
+
+        try {
+          const res = await fetch(`${API_BASE}/videos`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!res.ok) {
+            uploadStatus.textContent = "Error al subir el video";
+            uploadBtn.disabled = false;
+            return;
+          }
+
+          uploadStatus.textContent = "Video convertido correctamente";
+          fileInput.value = "";
+          await loadVideos();
+        } catch (err) {
+          console.error(err);
+          uploadStatus.textContent = "Error en la comunicación con el servidor";
+        } finally {
+          uploadBtn.disabled = false;
+        }
+      });
+
+      // Cargar lista inicial
+      loadVideos();
+    </script>
+  </body>
+</html>
