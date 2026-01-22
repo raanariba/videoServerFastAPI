@@ -28,18 +28,72 @@ def print_progress(line: str, duration: float):
             out_ms = int(line.replace("out_time_ms=", "").strip())
             pct = (out_ms / (duration * 1_000_000)) * 100
             pct = min(100, pct)
-            print(f"[VideoService] Processing: {pct:.0f}%")
+            print(f"[VideoService][GPU] Processing: {pct:.0f}%")
         except:
             pass
+
+
+def is_gpu_available() -> bool:
+    """
+    Verifica si FFmpeg tiene el encoder NVENC disponible.
+    """
+    try:
+        probe = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-encoders"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        output = f"{probe.stdout}\n{probe.stderr}"
+        return "h264_nvenc" in output
+    except:
+        return False
+
+
+def get_gpu_info() -> str | None:
+    """
+    Intenta obtener info bÃ¡sica del dispositivo via nvidia-smi.
+    """
+    try:
+        probe = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        info = probe.stdout.strip()
+        if info:
+            return info
+    except:
+        pass
+
+    try:
+        probe = subprocess.run(
+            ["nvidia-smi", "-L"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        info = probe.stdout.strip()
+        if info:
+            return info
+    except:
+        pass
+
+    return None
 
 
 async def convert_to_hls(file: UploadFile) -> dict:
     ensure_upload_folders()
 
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Archivo inválido")
+        raise HTTPException(status_code=400, detail="Archivo invÃ¡lido")
 
-    print("[VideoService][CPU] Using CPU for processing")
+    gpu_info = get_gpu_info()
+    if gpu_info:
+        print(f"[VideoService][GPU] Using GPU: {gpu_info}")
+    else:
+        print("[VideoService][GPU] Using GPU (device info unavailable)")
 
     original_name = file.filename
     ext = Path(original_name).suffix or ".mp4"
@@ -54,7 +108,7 @@ async def convert_to_hls(file: UploadFile) -> dict:
     raw_bytes = await file.read()
     raw_path.write_bytes(raw_bytes)
 
-    # Obtener duración
+    # Obtener duraciÃ³n
     try:
         probe = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -83,7 +137,7 @@ async def convert_to_hls(file: UploadFile) -> dict:
         str(playlist_path),
     ]
 
-    print("[VideoService] Processing: 0%")
+    print("[VideoService][GPU] Processing: 0%")
 
     try:
         process = subprocess.Popen(
@@ -98,7 +152,7 @@ async def convert_to_hls(file: UploadFile) -> dict:
             print_progress(line, duration)
 
         process.wait()
-        print("[VideoService] Processing: 100%")
+        print("[VideoService][GPU] Processing: 100%")
 
         metadata = {
             "id": folder_name,
@@ -114,7 +168,7 @@ async def convert_to_hls(file: UploadFile) -> dict:
     finally:
         if raw_path.exists():
             os.remove(raw_path)
-            print(f"[VideoService] RAW cleaned: {raw_path}")
+            print(f"[VideoService][GPU] RAW cleaned: {raw_path}")
 
     return {
         "id": folder_name,
@@ -122,27 +176,3 @@ async def convert_to_hls(file: UploadFile) -> dict:
         "playlistUrl": f"/streams/{folder_name}/{HLS_PLAYLIST}",
         "uploadedAt": uploaded_at,
     }
-
-
-async def list_videos() -> list[dict]:
-    ensure_upload_folders()
-    videos: list[dict] = []
-
-    if not HLS_VIDEO_DIR.exists():
-        return videos
-
-    for subdir in HLS_VIDEO_DIR.iterdir():
-        metadata_file = subdir / "metadata.json"
-        if not metadata_file.exists():
-            continue
-
-        data = json.loads(metadata_file.read_text(encoding="utf-8"))
-        videos.append({
-            "id": data["id"],
-            "originalName": data["originalName"],
-            "playlistUrl": f"/streams/{subdir.name}/{HLS_PLAYLIST}",
-            "uploadedAt": data["uploadedAt"],
-        })
-
-    videos.sort(key=lambda v: v["uploadedAt"], reverse=True)
-    return videos

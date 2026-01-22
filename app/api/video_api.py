@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import os
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from typing import List
 
-from app.services.cpu_hls_service import convert_to_hls, list_videos
+from app.services.cpu_hls_service import convert_to_hls as cpu_convert_to_hls, list_videos
+from app.services.gpu_hls_service import convert_to_hls as gpu_convert_to_hls, is_gpu_available
 from app.config.settings import HLS_VIDEO_DIR
 from app.models.video_dto import VideoResponse, UploadResponse
 
@@ -37,7 +40,16 @@ async def get_videos():
     description="Sube un video, lo convierte a HLS y devuelve metadata."
 )
 async def upload_video(file: UploadFile = File(...)):
-    return await convert_to_hls(file)
+    use_gpu_env = os.getenv("USE_GPU_IF_IS_AVAILABLE")
+    if use_gpu_env is None:
+        use_gpu = False
+    else:
+        use_gpu = use_gpu_env.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+    if use_gpu and is_gpu_available():
+        return await gpu_convert_to_hls(file)
+
+    return await cpu_convert_to_hls(file)
 
 
 @router.get(
