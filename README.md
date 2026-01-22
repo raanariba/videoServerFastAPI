@@ -132,8 +132,6 @@ Nunca se exponen los RAW al cliente.
 
 - Multi-resolución (360p, 720p, 1080p)
 - GPU (NVENC)
-- Auto-upload a DigitalOcean Spaces / S3
-- Webhooks para el panel NestJS
 - Cola (RabbitMQ) estilo WBC
 - Auth bearer para producción
 
@@ -141,4 +139,3 @@ Nunca se exponen los RAW al cliente.
 
 ## 📄 Licencia
 
-Uso interno WBC / Development
